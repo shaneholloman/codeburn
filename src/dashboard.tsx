@@ -231,11 +231,13 @@ function shortProject(encoded: string): string {
 function ProjectBreakdown({ projects, pw, bw, budgets }: { projects: ProjectSummary[]; pw: number; bw: number; budgets?: Map<string, ContextBudget> }) {
   const maxCost = Math.max(...projects.map(p => p.totalCostUSD))
   const hasBudgets = budgets && budgets.size > 0
-  const nw = Math.max(8, pw - bw - (hasBudgets ? 31 : 23))
+  const PROJECT_COL_BASE_WIDTH = 23
+  const PROJECT_COL_WITH_OVERHEAD_WIDTH = 33
+  const nw = Math.max(8, pw - bw - (hasBudgets ? PROJECT_COL_WITH_OVERHEAD_WIDTH : PROJECT_COL_BASE_WIDTH))
   return (
     <Panel title="By Project" color={PANEL_COLORS.project} width={pw}>
       <Text dimColor wrap="truncate-end">
-        {''.padEnd(bw + 1 + nw)}{'cost'.padStart(8)}{'sess'.padStart(6)}{hasBudgets ? 'ctx'.padStart(8) : ''}
+        {''.padEnd(bw + 1 + nw)}{'cost'.padStart(8)}{'sess'.padStart(6)}{hasBudgets ? 'overhead'.padStart(10) : ''}
       </Text>
       {projects.slice(0, 8).map((project, i) => {
         const budget = budgets?.get(project.project)
@@ -245,7 +247,7 @@ function ProjectBreakdown({ projects, pw, bw, budgets }: { projects: ProjectSumm
             <Text dimColor> {fit(shortProject(project.project), nw)}</Text>
             <Text color={GOLD}>{formatCost(project.totalCostUSD).padStart(8)}</Text>
             <Text>{String(project.sessions.length).padStart(6)}</Text>
-            {hasBudgets && <Text color="#7B9EF5">{(budget ? formatTokens(budget.total) : '-').padStart(8)}</Text>}
+            {hasBudgets && <Text color="#7B9EF5">{(budget ? formatTokens(budget.total) : '-').padStart(10)}</Text>}
           </Text>
         )
       })}
