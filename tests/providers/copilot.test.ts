@@ -142,6 +142,23 @@ describe('copilot provider - JSONL parsing', () => {
     for await (const call of copilot.createSessionParser(source, new Set()).parse()) calls.push(call)
     expect(calls).toHaveLength(0)
   })
+
+  it('skips assistant messages before the first model_change event', async () => {
+    const eventsPath = await createSessionDir('sess-no-model', [
+      assistantMessage({ messageId: 'msg-early', outputTokens: 50 }),
+      modelChange('gpt-4.1'),
+      assistantMessage({ messageId: 'msg-after', outputTokens: 80 }),
+    ])
+
+    const source = { path: eventsPath, project: 'test', provider: 'copilot' }
+    const calls: ParsedProviderCall[] = []
+    for await (const call of copilot.createSessionParser(source, new Set()).parse()) calls.push(call)
+
+    expect(calls).toHaveLength(1)
+    expect(calls[0]!.messageId).toBeUndefined()
+    expect(calls[0]!.outputTokens).toBe(80)
+    expect(calls[0]!.model).toBe('gpt-4.1')
+  })
 })
 
 describe('copilot provider - discoverSessions', () => {
@@ -167,6 +184,19 @@ describe('copilot provider - discoverSessions', () => {
 
   it('reads project name from workspace.yaml cwd', async () => {
     await createSessionDir('sess-disc-003', [modelChange('gpt-4.1')], '/home/user/myapp')
+
+    const provider = createCopilotProvider(tmpDir)
+    const sessions = await provider.discoverSessions()
+
+    expect(sessions).toHaveLength(1)
+    expect(sessions[0]!.project).toBe('myapp')
+  })
+
+  it('strips quotes and trailing comments from workspace.yaml cwd', async () => {
+    const sessionDir = join(tmpDir, 'sess-quoted')
+    await mkdir(sessionDir, { recursive: true })
+    await writeFile(join(sessionDir, 'workspace.yaml'), 'cwd: "/home/user/myapp"  # project root\n')
+    await writeFile(join(sessionDir, 'events.jsonl'), '\n')
 
     const provider = createCopilotProvider(tmpDir)
     const sessions = await provider.discoverSessions()
@@ -213,5 +243,11 @@ describe('copilot provider - metadata', () => {
     expect(copilot.modelDisplayName('o3')).toBe('o3')
     expect(copilot.modelDisplayName('o4-mini')).toBe('o4-mini')
     expect(copilot.modelDisplayName('unknown-model-xyz')).toBe('unknown-model-xyz')
+  })
+
+  it('longest-prefix match wins for versioned model IDs', () => {
+    // gpt-5-mini-2026-01-01 must match gpt-5-mini, not gpt-5
+    expect(copilot.modelDisplayName('gpt-5-mini-2026-01-01')).toBe('GPT-5 Mini')
+    expect(copilot.modelDisplayName('gpt-4.1-mini-2026-01-01')).toBe('GPT-4.1 Mini')
   })
 })

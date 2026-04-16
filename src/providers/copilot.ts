@@ -27,7 +27,7 @@ const toolNameMap: Record<string, string> = {
   write_file: 'Edit',
   edit_file: 'Edit',
   create_file: 'Write',
-  delete_file: 'Edit',
+  delete_file: 'Delete',
   search_files: 'Grep',
   find_files: 'Glob',
   list_directory: 'LS',
@@ -39,6 +39,7 @@ const toolNameMap: Record<string, string> = {
 // Pre-sorted by key length descending so longer/more-specific keys match first
 const modelDisplayEntries = Object.entries(modelDisplayNames).sort((a, b) => b[0].length - a[0].length)
 
+// Fields marked optional document the on-disk schema; they are not read by the parser
 type ToolRequest = {
   name?: string
   toolCallId?: string
@@ -71,6 +72,16 @@ function getCopilotSessionStateDir(override?: string): string {
   return override ?? join(homedir(), '.copilot', 'session-state')
 }
 
+function parseCwd(yaml: string): string | null {
+  const match = yaml.match(/^cwd:\s*(.+)$/m)
+  if (!match?.[1]) return null
+  const raw = match[1]
+    .replace(/\s*#.*$/, '')    // strip trailing comment
+    .replace(/^['"]|['"]$/g, '') // strip surrounding quotes
+    .trim()
+  return raw || null
+}
+
 function createParser(source: SessionSource, seenKeys: Set<string>): SessionParser {
   return {
     async *parse(): AsyncGenerator<ParsedProviderCall> {
@@ -83,7 +94,7 @@ function createParser(source: SessionSource, seenKeys: Set<string>): SessionPars
 
       const sessionId = basename(dirname(source.path))
       const lines = content.split('\n').filter(l => l.trim())
-      let currentModel = 'gpt-4.1'
+      let currentModel = ''
       let pendingUserMessage = ''
 
       for (const line of lines) {
@@ -107,6 +118,8 @@ function createParser(source: SessionSource, seenKeys: Set<string>): SessionPars
         if (event.type === 'assistant.message') {
           const { messageId, outputTokens, toolRequests = [] } = event.data
           if (outputTokens === 0) continue
+          // Skip if no model has been identified yet - avoids silent misattribution
+          if (!currentModel) continue
 
           const dedupKey = `copilot:${sessionId}:${messageId}`
           if (seenKeys.has(dedupKey)) continue
@@ -117,6 +130,8 @@ function createParser(source: SessionSource, seenKeys: Set<string>): SessionPars
             .filter(Boolean)
             .map(n => toolNameMap[n] ?? n)
 
+          // Copilot only logs outputTokens; inputTokens are not available in session logs.
+          // Cost will be lower than actual API cost.
           const costUSD = calculateCost(currentModel, 0, outputTokens, 0, 0, 0)
 
           yield {
@@ -164,8 +179,8 @@ async function discoverSessionsInDir(sessionStateDir: string): Promise<SessionSo
     let project = sessionId
     try {
       const yaml = await readFile(join(sessionStateDir, sessionId, 'workspace.yaml'), 'utf-8')
-      const cwdMatch = yaml.match(/^cwd:\s*(.+)$/m)
-      if (cwdMatch?.[1]) project = basename(cwdMatch[1].trim())
+      const cwd = parseCwd(yaml)
+      if (cwd) project = basename(cwd)
     } catch {}
 
     sources.push({ path: eventsPath, project, provider: 'copilot' })
