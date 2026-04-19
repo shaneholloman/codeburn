@@ -339,8 +339,18 @@ program
 
       // The daily cache is provider-agnostic: always backfill it from .all so subsequent
       // provider-filtered reads can derive per-provider cost+calls from DailyEntry.providers.
+      // Yesterday is always recomputed: it may have been cached mid-day with partial data.
       const cache = await withDailyCacheLock(async () => {
         let c = await loadDailyCache()
+
+        // Evict yesterday (and any stale future entries) so the gap fill recomputes them.
+        const hadYesterday = c.days.some(d => d.date >= yesterdayStr)
+        if (hadYesterday) {
+          const freshDays = c.days.filter(d => d.date < yesterdayStr)
+          const latestFresh = freshDays.length > 0 ? freshDays[freshDays.length - 1].date : null
+          c = { ...c, days: freshDays, lastComputedDate: latestFresh }
+        }
+
         const gapStart = c.lastComputedDate
           ? new Date(new Date(`${c.lastComputedDate}T00:00:00.000Z`).getTime() + MS_PER_DAY)
           : new Date(todayStart.getTime() - BACKFILL_DAYS * MS_PER_DAY)
