@@ -709,13 +709,13 @@ function InteractiveDashboard({ initialProjects, initialPeriod, initialProvider,
 
   return (
     <Box flexDirection="column" width={dashWidth}>
-      <PeriodTabs active={period} providerName={activeProvider} showProvider={multipleProviders} />
+      <PeriodTabs active={period} providerName={activeProvider} showProvider={multipleProviders && view !== 'compare'} />
       {view === 'compare'
         ? <CompareView projects={projects} onBack={() => setView('dashboard')} />
         : view === 'optimize' && optimizeResult
           ? <OptimizeView findings={optimizeResult.findings} costRate={optimizeResult.costRate} projects={projects} label={PERIOD_LABELS[period]} width={dashWidth} healthScore={optimizeResult.healthScore} healthGrade={optimizeResult.healthGrade} />
           : <DashboardContent projects={projects} period={period} columns={columns} activeProvider={activeProvider} budgets={projectBudgets} />}
-      <StatusBar width={dashWidth} showProvider={multipleProviders} view={view} findingCount={findingCount} optimizeAvailable={optimizeAvailable} compareAvailable={compareAvailable} />
+      <StatusBar width={dashWidth} showProvider={multipleProviders && view !== 'compare'} view={view} findingCount={findingCount} optimizeAvailable={optimizeAvailable} compareAvailable={compareAvailable} />
     </Box>
   )
 }
