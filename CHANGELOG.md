@@ -1,14 +1,23 @@
 # Changelog
 
-## Unreleased
+## 0.8.2 - 2026-04-20
 
 ### Added
-- **Persistent parse cache for all providers.** Repeated CLI runs now reuse parsed source summaries across fresh processes instead of reparsing raw logs every time.
-- **`--no-cache` on parse-backed commands.** `report`, `today`, `month`, `status`, `export`, `optimize`, and `compare` can bypass cached entries for that run and rebuild them from raw logs.
-- **`Updating cache` stderr progress.** Non-JSON cold or partial cache rebuilds now show progress while CodeBurn refreshes changed sources.
+- **Persistent parse cache for all providers.** Repeated CLI runs now reuse parsed source summaries across fresh processes instead of reparsing raw logs every time. Cache lives at `~/.cache/codeburn/source-cache-v1/` with atomic writes and 0600 file permissions. Credit: @spMohanty (PR #116).
+- **`--no-cache` on parse-backed commands.** `report`, `today`, `month`, `status`, `export`, `optimize`, and `compare` can bypass cached entries for that run and rebuild them from raw logs. Credit: @spMohanty (PR #116).
+- **`Updating cache` stderr progress.** Non-JSON cold or partial cache rebuilds now show progress while CodeBurn refreshes changed sources. Credit: @spMohanty (PR #116).
+- **`codeburn plan` subscription tracking.** Set your plan (`claude-pro`, `claude-max`, `cursor-pro`, or custom) to see a usage progress bar in the dashboard. Includes 7-day trailing median projection and billing-cycle-aware period math. Credit: @tmchow (PR #74).
 
 ### Changed
-- **Cursor now uses the shared parse cache.** The provider-specific Cursor cache path is gone; SQLite-backed provider data now flows through the same persistent cache layer as the other providers.
+- **Cursor now uses the shared parse cache.** The provider-specific Cursor cache path is gone; SQLite-backed provider data now flows through the same persistent cache layer as the other providers. Credit: @spMohanty (PR #116).
+
+### Fixed
+- **Model pricing: removed bidirectional fuzzy match.** `canonical.startsWith(key) || key.startsWith(canonical)` could match unrelated models. Now uses one-directional prefix only. Credit: @hobostay (PR #77).
+- **Zero-cost models incorrectly filtered.** `!entry.input_cost_per_token` treated `0` as missing. Now checks `=== undefined` so free-tier models retain their pricing entry. Credit: @hobostay (PR #77).
+- **File descriptor leak in `readSessionLines`.** Generator now calls `stream.destroy()` in a `finally` block so early abandonment does not leak open handles. Credit: @hobostay (PR #77).
+- **CSV injection guard extended.** Tab and carriage return characters at cell start are now escaped alongside `=`, `+`, `-`, `@`. Credit: @hobostay (PR #77).
+- **Crash on empty export periods.** Optional chaining prevents `undefined` access when a period has no projects. Credit: @hobostay (PR #77).
+- **Config read crash on malformed JSON.** Restored catch-all error handling in `readConfig` so a corrupt `config.json` returns defaults instead of crashing.
 
 ## 0.8.0 - 2026-04-19
 
