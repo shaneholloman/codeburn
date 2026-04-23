@@ -52,27 +52,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     private func setupWakeObservers() {
-        // Force refresh when system wakes from sleep
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.forceRefresh()
+            Task { @MainActor in self?.forceRefresh() }
         }
 
-        // Force refresh when screen wakes
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.screensDidWakeNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.forceRefresh()
+            Task { @MainActor in self?.forceRefresh() }
         }
     }
 
     private func forceRefresh() {
-        Task { @MainActor in
+        Task {
             await store.refreshQuietly(period: .today)
             refreshStatusButton()
             await store.refresh(includeOptimize: true)
