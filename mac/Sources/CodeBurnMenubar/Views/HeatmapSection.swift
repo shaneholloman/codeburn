@@ -1,14 +1,6 @@
 import SwiftUI
 
-private func trendDaysFor(_ period: Period) -> Int {
-    switch period {
-    case .today: return 7
-    case .sevenDays: return 7
-    case .thirtyDays: return 30
-    case .month: return 30
-    case .all: return 90
-    }
-}
+private let trendDays = 19
 private let trendBarWidth: CGFloat = 13
 private let trendBarGap: CGFloat = 4
 private let trendChartHeight: CGFloat = 90
@@ -51,7 +43,7 @@ struct HeatmapSection: View {
     private var content: some View {
         switch store.selectedInsight {
         case .plan: PlanInsight(usage: store.subscription)
-        case .trend: TrendInsight(days: store.payload.history.daily, period: store.selectedPeriod)
+        case .trend: TrendInsight(days: store.payload.history.daily)
         case .forecast: ForecastInsight(days: store.payload.history.daily)
         case .pulse: PulseInsight(payload: store.payload)
         case .stats: StatsInsight(payload: store.payload)
@@ -91,13 +83,10 @@ private struct InsightPillSwitcher: View {
 
 private struct TrendInsight: View {
     let days: [DailyHistoryEntry]
-    let period: Period
-
-    private var trendDays: Int { trendDaysFor(period) }
 
     var body: some View {
-        let bars = buildTrendBars(from: days, count: trendDays)
-        let stats = computeTrendStats(bars: bars, allDays: days, count: trendDays)
+        let bars = buildTrendBars(from: days)
+        let stats = computeTrendStats(bars: bars, allDays: days)
         // Tokens are real for the .all-providers view; per-provider history doesn't carry
         // token breakdown yet, so fall back to $ when no tokens are present.
         let totalTokens = bars.reduce(0.0) { $0 + $1.tokens }
@@ -401,7 +390,7 @@ private struct TrendStats {
     let yesterdayBar: TrendBar?
 }
 
-private func buildTrendBars(from days: [DailyHistoryEntry], count: Int) -> [TrendBar] {
+private func buildTrendBars(from days: [DailyHistoryEntry]) -> [TrendBar] {
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = .current
     let formatter: DateFormatter = {
@@ -415,7 +404,7 @@ private func buildTrendBars(from days: [DailyHistoryEntry], count: Int) -> [Tren
     let todayKey = formatter.string(from: today)
 
     var bars: [TrendBar] = []
-    for offset in (0..<count).reversed() {
+    for offset in (0..<trendDays).reversed() {
         guard let d = calendar.date(byAdding: .day, value: -offset, to: today) else { continue }
         let key = formatter.string(from: d)
         let entry = entryByDate[key]
@@ -431,7 +420,7 @@ private func buildTrendBars(from days: [DailyHistoryEntry], count: Int) -> [Tren
     return bars
 }
 
-private func computeTrendStats(bars: [TrendBar], allDays: [DailyHistoryEntry], count: Int) -> TrendStats {
+private func computeTrendStats(bars: [TrendBar], allDays: [DailyHistoryEntry]) -> TrendStats {
     let total = bars.reduce(0.0) { $0 + $1.cost }
     let active = bars.filter { $0.cost > 0 }.count
     let avg = bars.isEmpty ? 0 : total / Double(bars.count)
@@ -446,8 +435,8 @@ private func computeTrendStats(bars: [TrendBar], allDays: [DailyHistoryEntry], c
         return f
     }()
     let today = calendar.startOfDay(for: Date())
-    let priorWindowStart = calendar.date(byAdding: .day, value: -(2 * count - 1), to: today)
-    let thisWindowStart = calendar.date(byAdding: .day, value: -(count - 1), to: today)
+    let priorWindowStart = calendar.date(byAdding: .day, value: -(2 * trendDays - 1), to: today)
+    let thisWindowStart = calendar.date(byAdding: .day, value: -(trendDays - 1), to: today)
     var deltaPercent: Double? = nil
     if let priorStart = priorWindowStart, let thisStart = thisWindowStart {
         let priorStartStr = formatter.string(from: priorStart)
