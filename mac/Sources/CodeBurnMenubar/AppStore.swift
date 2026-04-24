@@ -73,11 +73,10 @@ final class AppStore {
         let key = currentKey
         guard !inFlightKeys.contains(key) else { return }
         inFlightKeys.insert(key)
-        let showLoading = cache[key] == nil
-        if showLoading { isLoading = true }
+        isLoading = true
         defer {
             inFlightKeys.remove(key)
-            if showLoading { isLoading = false }
+            isLoading = false
         }
         do {
             let fresh = try await DataClient.fetch(period: key.period, provider: key.provider, includeOptimize: includeOptimize)
