@@ -7,7 +7,7 @@ import { convertCost } from './currency.js'
 import { renderStatusBar } from './format.js'
 import { type PeriodData, type ProviderCost } from './menubar-json.js'
 import { buildMenubarPayload } from './menubar-json.js'
-import { getDaysInRange, ensureCacheHydrated } from './daily-cache.js'
+import { getDaysInRange, ensureCacheHydrated, emptyCache, MS_PER_DAY, BACKFILL_DAYS, toDateString } from './daily-cache.js'
 import { aggregateProjectsIntoDays, buildPeriodDataFromDays, dateKey } from './day-aggregator.js'
 import { CATEGORY_LABELS, type DateRange, type ProjectSummary, type TaskCategory } from './types.js'
 import { renderDashboard } from './dashboard.js'
@@ -24,18 +24,15 @@ const require = createRequire(import.meta.url)
 const { version } = require('../package.json')
 import { loadCurrency, getCurrency, isValidCurrencyCode } from './currency.js'
 
-const MS_PER_DAY = 24 * 60 * 60 * 1000
-const BACKFILL_DAYS = 365
-
-function toDateString(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-}
-
-function hydrateCache() {
-  return ensureCacheHydrated(
-    (range) => parseAllSessions(range, 'all'),
-    aggregateProjectsIntoDays,
-  )
+async function hydrateCache() {
+  try {
+    return await ensureCacheHydrated(
+      (range) => parseAllSessions(range, 'all'),
+      aggregateProjectsIntoDays,
+    )
+  } catch {
+    return emptyCache()
+  }
 }
 
 function getDateRange(period: string): { range: DateRange; label: string } {
@@ -129,7 +126,6 @@ function toJsonPlanSummary(planUsage: PlanUsage): JsonPlanSummary {
 
 async function runJsonReport(period: Period, provider: string, project: string[], exclude: string[]): Promise<void> {
   await loadPricing()
-  await hydrateCache()
   const { range, label } = getDateRange(period)
   const projects = filterProjectsByName(await parseAllSessions(range, provider), project, exclude)
   const report: ReturnType<typeof buildJsonReport> & { plan?: JsonPlanSummary } = buildJsonReport(projects, label, period)

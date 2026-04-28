@@ -46,7 +46,7 @@ function getCachePath(): string {
   return join(getCacheDir(), DAILY_CACHE_FILENAME)
 }
 
-function emptyCache(): DailyCache {
+export function emptyCache(): DailyCache {
   return { version: DAILY_CACHE_VERSION, lastComputedDate: null, days: [] }
 }
 
@@ -88,11 +88,15 @@ export async function loadDailyCache(): Promise<DailyCache> {
     const raw = await readFile(path, 'utf-8')
     const parsed: unknown = JSON.parse(raw)
     if (isMigratableCache(parsed)) {
-      return {
+      const migrated: DailyCache = {
         version: DAILY_CACHE_VERSION,
         lastComputedDate: parsed.lastComputedDate,
         days: migrateDays(parsed.days),
       }
+      if (parsed.version < DAILY_CACHE_VERSION) {
+        await saveDailyCache(migrated).catch(() => {})
+      }
+      return migrated
     }
     const oldVersion = (parsed as { version?: number })?.version
     if (typeof oldVersion === 'number') await backupOldCache(path, oldVersion)
@@ -147,10 +151,10 @@ export function withDailyCacheLock<T>(fn: () => Promise<T>): Promise<T> {
   return next
 }
 
-const MS_PER_DAY = 24 * 60 * 60 * 1000
-const BACKFILL_DAYS = 365
+export const MS_PER_DAY = 24 * 60 * 60 * 1000
+export const BACKFILL_DAYS = 365
 
-function toDateString(date: Date): string {
+export function toDateString(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
