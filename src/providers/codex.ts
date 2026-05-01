@@ -80,19 +80,21 @@ async function readFirstLine(filePath: string): Promise<CodexEntry | null> {
   // Codex CLI 0.128+ writes a session_meta line that can exceed 20 KB because
   // it embeds the full base_instructions / system prompt. A fixed-size buffer
   // would miss the trailing newline and reject the session as invalid.
-  // Stream the file via readline so we can read the first line regardless of
-  // length, with `end` capping the read to keep memory bounded.
+  // Stream the file via readline so we can read the first line up to
+  // FIRST_LINE_READ_CAP, which keeps memory bounded if the file has no newline.
   const stream = createReadStream(filePath, {
     encoding: 'utf-8',
     start: 0,
     end: FIRST_LINE_READ_CAP - 1,
   })
+  // Silence stream errors so a late read-ahead error after we've already
+  // returned the first line cannot escape as an unhandled 'error' event.
+  // readline's async iterator re-throws underlying stream errors (ENOENT,
+  // EACCES, etc.) on Node 16+, which the catch below handles for the cases
+  // that matter for validation.
+  stream.on('error', () => {})
   const rl = createInterface({ input: stream, crlfDelay: Infinity })
   let firstLine: string | undefined
-  // readline's async iterator re-throws underlying stream errors (ENOENT,
-  // EACCES, etc.) on Node 16+, which the catch below handles. Don't track a
-  // separate streamError flag: it can race with the read-ahead and reject a
-  // valid first line if a *later* chunk errors after we've already broken.
   try {
     for await (const line of rl) {
       firstLine = line
