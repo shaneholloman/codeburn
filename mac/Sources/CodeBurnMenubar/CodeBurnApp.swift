@@ -42,7 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         ProcessInfo.processInfo.disableSuddenTermination()
         backgroundActivity = ProcessInfo.processInfo.beginActivity(
             options: [.userInitiated, .automaticTerminationDisabled, .suddenTerminationDisabled],
-            reason: "CodeBurn menubar polls AI coding cost every 15 seconds while idle in the background."
+            reason: "CodeBurn menubar polls AI coding cost every 30 seconds while idle in the background."
         )
 
         restorePersistedCurrency()
@@ -174,7 +174,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         lastRefreshTime = now
 
         Task {
-            await store.refresh(includeOptimize: true, force: true)
+            async let main: Void = store.refresh(includeOptimize: true, force: true)
+            async let today: Void = store.refreshQuietly(period: .today)
+            _ = await (main, today)
             refreshStatusButton()
         }
     }
@@ -202,9 +204,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     private func startRefreshLoop() {
-        Task {
-            await store.refresh(includeOptimize: true)
-            refreshStatusButton()
+        Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+                if self.store.selectedPeriod != .today || self.store.selectedProvider != .all {
+                    await self.store.refreshQuietly(period: .today)
+                }
+                await self.store.refresh(includeOptimize: true, force: true)
+                self.refreshStatusButton()
+                try? await Task.sleep(nanoseconds: refreshIntervalNanos)
+            }
         }
     }
 

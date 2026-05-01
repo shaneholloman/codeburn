@@ -55,7 +55,6 @@ struct MenuBarContent: View {
 
             StarBanner()
         }
-        .id(store.accentPreset)
     }
 
     /// True when a specific provider tab is selected and that provider has no spend in the
@@ -457,7 +456,7 @@ struct FooterBar: View {
         Task {
             let downloads = (NSHomeDirectory() as NSString).appendingPathComponent("Downloads")
             let formatter = DateFormatter()
-            formatter.dateFormat = "yyyy-MM-dd"
+            formatter.dateFormat = "yyyy-MM-dd-HHmmss"
             let base = "codeburn-\(formatter.string(from: Date()))"
             let outputPath = (downloads as NSString).appendingPathComponent(base + format.suffix)
 
@@ -466,13 +465,17 @@ struct FooterBar: View {
             ])
 
             do {
-                try process.run()
-                process.waitUntilExit()
-                if process.terminationStatus == 0 {
-                    NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: outputPath)])
-                } else {
-                    NSLog("CodeBurn: \(format.cliName.uppercased()) export exited with status \(process.terminationStatus)")
+                let fmt = format
+                process.terminationHandler = { proc in
+                    Task { @MainActor in
+                        if proc.terminationStatus == 0 {
+                            NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: outputPath)])
+                        } else {
+                            NSLog("CodeBurn: \(fmt.cliName.uppercased()) export exited with status \(proc.terminationStatus)")
+                        }
+                    }
                 }
+                try process.run()
             } catch {
                 NSLog("CodeBurn: \(format.cliName.uppercased()) export failed: \(error)")
             }
@@ -483,21 +486,18 @@ struct FooterBar: View {
      /// thread right away so the UI redraws the next frame, then fetches a fresh rate in the
      /// background. CLI config is persisted so other codeburn commands stay in sync.
     private func applyCurrency(code: String) {
-        store.currency = code
         let symbol = CurrencyState.symbolForCode(code)
 
         Task {
             let cached = await FXRateCache.shared.cachedRate(for: code)
-            await MainActor.run {
+            if let cached {
+                store.currency = code
                 CurrencyState.shared.apply(code: code, rate: cached, symbol: symbol)
             }
 
             let fresh = await FXRateCache.shared.rate(for: code)
-            if let fresh, fresh != cached {
-                await MainActor.run {
-                    CurrencyState.shared.apply(code: code, rate: fresh, symbol: symbol)
-                }
-            }
+            store.currency = code
+            CurrencyState.shared.apply(code: code, rate: fresh ?? cached, symbol: symbol)
         }
 
         CLICurrencyConfig.persist(code: code)

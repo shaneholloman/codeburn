@@ -8,7 +8,7 @@ struct AgentTabStrip: View {
             HStack(spacing: 5) {
                 ForEach(visibleFilters) { filter in
                     Button {
-                        Task { await store.switchTo(provider: filter) }
+                        store.switchTo(provider: filter)
                     } label: {
                         AgentTab(
                             filter: filter,
