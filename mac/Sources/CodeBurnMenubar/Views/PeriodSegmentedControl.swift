@@ -7,7 +7,7 @@ struct PeriodSegmentedControl: View {
         HStack(spacing: 1) {
             ForEach(Period.allCases) { period in
                 Button {
-                    Task { await store.switchTo(period: period) }
+                    store.switchTo(period: period)
                 } label: {
                     Text(period.rawValue)
                         .font(.system(size: 11, weight: .medium))

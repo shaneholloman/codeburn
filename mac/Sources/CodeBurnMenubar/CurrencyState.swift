@@ -10,8 +10,8 @@ private let minValidFXRate: Double = 0.0001
 private let maxValidFXRate: Double = 1_000_000
 private let fxFetchTimeoutSeconds: TimeInterval = 10
 
-@Observable
-final class CurrencyState: @unchecked Sendable {
+@MainActor @Observable
+final class CurrencyState: Sendable {
     static let shared = CurrencyState()
 
     var code: String = "USD"
@@ -31,7 +31,7 @@ final class CurrencyState: @unchecked Sendable {
         }
     }
 
-    static func symbolForCode(_ code: String) -> String {
+    nonisolated static func symbolForCode(_ code: String) -> String {
         // Some locales return "US$" for USD or "CA$" for CAD via NumberFormatter. Prefer the
         // plain glyph form everyone recognises.
         if let override = symbolOverrides[code] { return override }
@@ -42,7 +42,7 @@ final class CurrencyState: @unchecked Sendable {
         return formatter.currencySymbol ?? code
     }
 
-    private static let symbolOverrides: [String: String] = [
+    nonisolated private static let symbolOverrides: [String: String] = [
         "USD": "$",
         "CAD": "$",
         "AUD": "$",

@@ -370,7 +370,7 @@ private struct MiniStat: View {
 }
 
 private struct TrendBar: Identifiable {
-    let id = UUID()
+    var id: String { date }
     let date: String
     let cost: Double
     let inputTokens: Double
@@ -793,7 +793,7 @@ private struct AllStats {
     let historyDayCount: Int
 }
 
-private func computeAllStats(payload: MenubarPayload) -> AllStats {
+@MainActor private func computeAllStats(payload: MenubarPayload) -> AllStats {
     let history = payload.history.daily
     let favoriteModel = payload.current.topModels.first?.name ?? "—"
 
@@ -848,13 +848,21 @@ private func computeAllStats(payload: MenubarPayload) -> AllStats {
 
     var longestStreak = 0
     var running = 0
-    let sortedDates = history.map(\.date).sorted()
-    for date in sortedDates {
-        if (costByDate[date] ?? 0) > 0 {
-            running += 1
-            longestStreak = max(longestStreak, running)
-        } else {
-            running = 0
+    if let firstDate = history.map(\.date).min(),
+       let lastDate = history.map(\.date).max(),
+       let start = formatter.date(from: firstDate),
+       let end = formatter.date(from: lastDate) {
+        var cursor = start
+        while cursor <= end {
+            let key = formatter.string(from: cursor)
+            if (costByDate[key] ?? 0) > 0 {
+                running += 1
+                longestStreak = max(longestStreak, running)
+            } else {
+                running = 0
+            }
+            guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
+            cursor = next
         }
     }
 

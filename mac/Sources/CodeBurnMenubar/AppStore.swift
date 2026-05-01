@@ -25,7 +25,8 @@ final class AppStore {
     }
     var showingAccentPicker: Bool = false
     var currency: String = "USD"
-    var isLoading: Bool = false
+    var isLoading: Bool { loadingCount > 0 }
+    private var loadingCount: Int = 0
     var lastError: String?
     var subscription: SubscriptionUsage?
     var subscriptionError: String?
@@ -33,6 +34,7 @@ final class AppStore {
     var capacityEstimates: [String: CapacityEstimate] = [:]
 
     private var cache: [PayloadCacheKey: CachedPayload] = [:]
+    private var switchTask: Task<Void, Never>?
 
     private var currentKey: PayloadCacheKey {
         PayloadCacheKey(period: selectedPeriod, provider: selectedProvider)
@@ -62,16 +64,37 @@ final class AppStore {
         payload.optimize.findingCount
     }
 
-    /// Switch to a period. Always fetches fresh data so the user never sees stale numbers.
-    func switchTo(period: Period) async {
+    /// Switch to a period. Cancels any in-flight switch and fetches provider-specific +
+    /// all-provider data in parallel so tab strip costs stay in sync with the hero.
+    func switchTo(period: Period) {
         selectedPeriod = period
-        await refresh(includeOptimize: true, force: true)
+        switchTask?.cancel()
+        switchTask = Task {
+            if selectedProvider == .all {
+                await refresh(includeOptimize: true, force: true)
+            } else {
+                async let main: Void = refresh(includeOptimize: true, force: true)
+                async let all: Void = refreshQuietly(period: period)
+                _ = await (main, all)
+            }
+        }
     }
 
-    /// Switch to a provider filter. Always fetches fresh data so the user never sees stale numbers.
-    func switchTo(provider: ProviderFilter) async {
+    /// Switch to a provider filter. Cancels any in-flight switch so rapid tab tapping only
+    /// runs the CLI for the final selection. Fetches provider-specific and all-provider data
+    /// in parallel so the tab strip costs stay in sync with the hero.
+    func switchTo(provider: ProviderFilter) {
         selectedProvider = provider
-        await refresh(includeOptimize: true, force: true)
+        switchTask?.cancel()
+        switchTask = Task {
+            if provider == .all {
+                await refresh(includeOptimize: true, force: true)
+            } else {
+                async let main: Void = refresh(includeOptimize: true, force: true)
+                async let all: Void = refreshQuietly(period: selectedPeriod)
+                _ = await (main, all)
+            }
+        }
     }
 
     private var inFlightKeys: Set<PayloadCacheKey> = []
@@ -85,18 +108,21 @@ final class AppStore {
         if !force, cache[key]?.isFresh == true { return }
         guard !inFlightKeys.contains(key) else { return }
         inFlightKeys.insert(key)
-        if cache[key] == nil {
-            isLoading = true
+        let showedLoading = cache[key] == nil
+        if showedLoading {
+            loadingCount += 1
         }
         defer {
             inFlightKeys.remove(key)
-            isLoading = false
+            if showedLoading { loadingCount = max(loadingCount - 1, 0) }
         }
         do {
             let fresh = try await DataClient.fetch(period: key.period, provider: key.provider, includeOptimize: includeOptimize)
+            guard !Task.isCancelled else { return }
             cache[key] = CachedPayload(payload: fresh, fetchedAt: Date())
             lastError = nil
         } catch {
+            if Task.isCancelled { return }
             lastError = String(describing: error)
             NSLog("CodeBurn: fetch failed for \(key.period.rawValue)/\(key.provider.rawValue): \(error)")
         }
@@ -336,7 +362,7 @@ private let thousandsFormatter: NumberFormatter = {
     return f
 }()
 
-extension Double {
+@MainActor extension Double {
     func asCurrency() -> String {
         let state = CurrencyState.shared
         let converted = self * state.rate

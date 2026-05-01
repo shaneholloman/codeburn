@@ -1,4 +1,5 @@
 import SwiftUI
+import Observation
 
 enum AccentPreset: String, CaseIterable, Identifiable {
     case ember    = "Ember"
@@ -72,6 +73,7 @@ enum AccentPreset: String, CaseIterable, Identifiable {
 }
 
 @MainActor
+@Observable
 final class ThemeState {
     static let shared = ThemeState()
 
