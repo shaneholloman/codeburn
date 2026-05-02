@@ -515,7 +515,7 @@ private struct ForecastInsight: View {
         guard previous > 0 else { return "no prior month" }
         let diff = ((projection - previous) / previous) * 100
         let sign = diff >= 0 ? "+" : ""
-        return "\(sign)\(String(format: "%.0f", diff))% vs last month ($\(String(format: "%.0f", previous)))"
+        return "\(sign)\(String(format: "%.0f", diff))% vs last month (\(previous.asCompactCurrency()))"
     }
 }
 
