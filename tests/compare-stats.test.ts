@@ -28,6 +28,7 @@ function makeTurn(model: string, cost: number, opts: { hasEdits?: boolean; retri
       costUSD: cost,
       tools: defaultTools,
       mcpTools: [],
+      skills: [],
       hasAgentSpawn: opts.hasAgentSpawn ?? false,
       hasPlanMode: opts.hasPlanMode ?? false,
       speed: opts.speed ?? 'standard' as const,
@@ -56,6 +57,7 @@ function makeProject(turns: ClassifiedTurn[]): ProjectSummary {
     mcpBreakdown: {},
     bashBreakdown: {},
     categoryBreakdown: {} as SessionSummary['categoryBreakdown'],
+    skillBreakdown: {} as SessionSummary['skillBreakdown'],
   }
   return {
     project: 'test-project',

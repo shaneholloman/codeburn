@@ -53,6 +53,10 @@ function getAllTools(turn: ParsedTurn): string[] {
   return turn.assistantCalls.flatMap(c => c.tools)
 }
 
+function getAllSkills(turn: ParsedTurn): string[] {
+  return turn.assistantCalls.flatMap(c => c.skills ?? [])
+}
+
 function classifyByToolPattern(turn: ParsedTurn): TaskCategory | null {
   const tools = getAllTools(turn)
   if (tools.length === 0) return null
@@ -159,5 +163,12 @@ export function classifyTurn(turn: ParsedTurn): ClassifiedTurn {
     }
   }
 
-  return { ...turn, category, retries: countRetries(turn), hasEdits: turnHasEdits(turn) }
+  const result: ClassifiedTurn = { ...turn, category, retries: countRetries(turn), hasEdits: turnHasEdits(turn) }
+
+  if (category === 'general') {
+    const skills = getAllSkills(turn)
+    if (skills.length > 0) result.subCategory = skills[0]
+  }
+
+  return result
 }

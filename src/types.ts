@@ -72,6 +72,7 @@ export type ParsedApiCall = {
   costUSD: number
   tools: string[]
   mcpTools: string[]
+  skills: string[]
   hasAgentSpawn: boolean
   hasPlanMode: boolean
   speed: 'standard' | 'fast'
@@ -97,6 +98,7 @@ export type TaskCategory =
 
 export type ClassifiedTurn = ParsedTurn & {
   category: TaskCategory
+  subCategory?: string
   retries: number
   hasEdits: boolean
 }
@@ -118,6 +120,7 @@ export type SessionSummary = {
   mcpBreakdown: Record<string, { calls: number }>
   bashBreakdown: Record<string, { calls: number }>
   categoryBreakdown: Record<TaskCategory, { turns: number; costUSD: number; retries: number; editTurns: number; oneShotTurns: number }>
+  skillBreakdown: Record<string, { turns: number; costUSD: number; editTurns: number; oneShotTurns: number }>
 }
 
 export type ProjectSummary = {

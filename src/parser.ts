@@ -44,6 +44,17 @@ function extractMcpTools(tools: string[]): string[] {
   return tools.filter(t => t.startsWith('mcp__'))
 }
 
+function extractSkillNames(content: ContentBlock[]): string[] {
+  return content
+    .filter((b): b is ToolUseBlock => b.type === 'tool_use' && b.name === 'Skill')
+    .map(b => {
+      const input = (b.input ?? {}) as Record<string, unknown>
+      const raw = input['skill'] ?? input['name']
+      return typeof raw === 'string' ? raw.trim() : ''
+    })
+    .filter(name => name.length > 0)
+}
+
 function extractCoreTools(tools: string[]): string[] {
   return tools.filter(t => !t.startsWith('mcp__'))
 }
@@ -93,6 +104,7 @@ function parseApiCall(entry: JournalEntry): ParsedApiCall | null {
   }
 
   const tools = extractToolNames(msg.content ?? [])
+  const skills = extractSkillNames(msg.content ?? [])
   const costUSD = calculateCost(
     msg.model,
     tokens.inputTokens,
@@ -112,6 +124,7 @@ function parseApiCall(entry: JournalEntry): ParsedApiCall | null {
     costUSD,
     tools,
     mcpTools: extractMcpTools(tools),
+    skills,
     hasAgentSpawn: tools.includes('Agent'),
     hasPlanMode: tools.includes('EnterPlanMode'),
     speed: usage.speed ?? 'standard',
@@ -200,6 +213,7 @@ function buildSessionSummary(
   const mcpBreakdown: SessionSummary['mcpBreakdown'] = Object.create(null)
   const bashBreakdown: SessionSummary['bashBreakdown'] = Object.create(null)
   const categoryBreakdown: SessionSummary['categoryBreakdown'] = Object.create(null)
+  const skillBreakdown: SessionSummary['skillBreakdown'] = Object.create(null)
 
   let totalCost = 0
   let totalInput = 0
@@ -222,6 +236,19 @@ function buildSessionSummary(
       categoryBreakdown[turn.category].editTurns++
       categoryBreakdown[turn.category].retries += turn.retries
       if (turn.retries === 0) categoryBreakdown[turn.category].oneShotTurns++
+    }
+
+    if (turn.subCategory) {
+      const skillKey = turn.subCategory
+      if (!skillBreakdown[skillKey]) {
+        skillBreakdown[skillKey] = { turns: 0, costUSD: 0, editTurns: 0, oneShotTurns: 0 }
+      }
+      skillBreakdown[skillKey].turns++
+      skillBreakdown[skillKey].costUSD += turnCost
+      if (turn.hasEdits) {
+        skillBreakdown[skillKey].editTurns++
+        if (turn.retries === 0) skillBreakdown[skillKey].oneShotTurns++
+      }
     }
 
     for (const call of turn.assistantCalls) {
@@ -283,6 +310,7 @@ function buildSessionSummary(
     mcpBreakdown,
     bashBreakdown,
     categoryBreakdown,
+    skillBreakdown,
   }
 }
 
@@ -402,6 +430,7 @@ function providerCallToTurn(call: ParsedProviderCall): ParsedTurn {
     costUSD: call.costUSD,
     tools,
     mcpTools: extractMcpTools(tools),
+    skills: [],
     hasAgentSpawn: tools.includes('Agent'),
     hasPlanMode: tools.includes('EnterPlanMode'),
     speed: call.speed,

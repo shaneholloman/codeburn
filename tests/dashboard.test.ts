@@ -37,6 +37,7 @@ function makeSession(id: string, cost: number, timestamp = '2026-04-14T10:00:00Z
     mcpBreakdown: {},
     bashBreakdown: {},
     categoryBreakdown: { ...EMPTY_CATEGORY_BREAKDOWN },
+    skillBreakdown: {},
   }
 }
 
