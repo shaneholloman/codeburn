@@ -64,6 +64,8 @@ type CodexTokenUsage = {
   total_tokens?: number
 }
 
+const CHARS_PER_TOKEN = 4
+
 function getCodexDir(override?: string): string {
   return override ?? process.env['CODEX_HOME'] ?? join(homedir(), '.codex')
 }
@@ -211,6 +213,8 @@ function createParser(source: SessionSource, seenKeys: Set<string>): SessionPars
       let prevReasoning = 0
       let pendingTools: string[] = []
       let pendingUserMessage = ''
+      let pendingOutputChars = 0
+      let estCounter = 0
       const results: ParsedProviderCall[] = []
 
       for (const line of lines) {
@@ -252,9 +256,57 @@ function createParser(source: SessionSource, seenKeys: Set<string>): SessionPars
           continue
         }
 
+        if (entry.type === 'response_item' && entry.payload?.type === 'message' && entry.payload?.role === 'assistant') {
+          const texts = (entry.payload.content ?? [])
+            .filter(c => c.type === 'output_text' || c.type === 'text')
+            .map(c => c.text ?? '')
+          pendingOutputChars += texts.join('').length
+          continue
+        }
+
         if (entry.type === 'event_msg' && entry.payload?.type === 'token_count') {
           const info = entry.payload.info
-          if (!info) continue
+          if (!info) {
+            if (pendingOutputChars === 0 && pendingUserMessage.length === 0) continue
+            const estInput = Math.ceil(pendingUserMessage.length / CHARS_PER_TOKEN)
+            const estOutput = Math.ceil(pendingOutputChars / CHARS_PER_TOKEN)
+            if (estInput === 0 && estOutput === 0) continue
+
+            const model = sessionModel ?? 'gpt-5'
+            const timestamp = entry.timestamp ?? ''
+            const dedupKey = `codex:${sessionId}:${timestamp}:est${estCounter++}`
+
+            if (seenKeys.has(dedupKey)) { pendingTools = []; pendingUserMessage = ''; pendingOutputChars = 0; continue }
+            seenKeys.add(dedupKey)
+
+            const costUSD = calculateCost(model, estInput, estOutput, 0, 0, 0)
+
+            results.push({
+              provider: 'codex',
+              model,
+              inputTokens: estInput,
+              outputTokens: estOutput,
+              cacheCreationInputTokens: 0,
+              cacheReadInputTokens: 0,
+              cachedInputTokens: 0,
+              reasoningTokens: 0,
+              webSearchRequests: 0,
+              costUSD,
+              costIsEstimated: true,
+              tools: pendingTools,
+              bashCommands: [],
+              timestamp,
+              speed: 'standard',
+              deduplicationKey: dedupKey,
+              userMessage: pendingUserMessage,
+              sessionId,
+            })
+
+            pendingTools = []
+            pendingUserMessage = ''
+            pendingOutputChars = 0
+            continue
+          }
 
           const cumulativeTotal = info.total_token_usage?.total_tokens ?? 0
           if (cumulativeTotal > 0 && cumulativeTotal === prevCumulativeTotal) continue
@@ -335,6 +387,7 @@ function createParser(source: SessionSource, seenKeys: Set<string>): SessionPars
 
           pendingTools = []
           pendingUserMessage = ''
+          pendingOutputChars = 0
         }
       }
 

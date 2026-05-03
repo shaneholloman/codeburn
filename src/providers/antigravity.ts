@@ -9,7 +9,7 @@ import { calculateCost } from '../models.js'
 import type { Provider, SessionSource, SessionParser, ParsedProviderCall } from './types.js'
 
 const CONVERSATIONS_DIR = join(homedir(), '.gemini', 'antigravity', 'conversations')
-const CACHE_VERSION = 1
+const CACHE_VERSION = 2
 
 const RPC_TIMEOUT_MS = 5000
 const MAX_RESPONSE_BYTES = 16 * 1024 * 1024
@@ -283,7 +283,8 @@ function createParser(source: SessionSource, seenKeys: Set<string>): SessionPars
 
       const results: ParsedProviderCall[] = []
 
-      for (const entry of metadata) {
+      for (let i = 0; i < metadata.length; i++) {
+        const entry = metadata[i]!
         const usage = entry.chatModel?.usage
         if (!usage) continue
 
@@ -294,7 +295,7 @@ function createParser(source: SessionSource, seenKeys: Set<string>): SessionPars
 
         if (inputTokens === 0 && outputTokens === 0) continue
 
-        const responseId = usage.responseId ?? ''
+        const responseId = usage.responseId || String(i)
         const dedupKey = `antigravity:${cascadeId}:${responseId}`
 
         const model = modelMap[usage.model] ?? usage.model

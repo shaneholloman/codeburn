@@ -19,6 +19,7 @@ export type ParsedProviderCall = {
   reasoningTokens: number
   webSearchRequests: number
   costUSD: number
+  costIsEstimated?: boolean
   tools: string[]
   bashCommands: string[]
   timestamp: string
