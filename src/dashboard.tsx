@@ -353,8 +353,11 @@ function ModelBreakdown({ projects, pw, bw }: { projects: ProjectSummary[]; pw: 
   )
 }
 
+const SKILL_SUB_ROWS_LIMIT = 5
+
 function ActivityBreakdown({ projects, pw, bw }: { projects: ProjectSummary[]; pw: number; bw: number }) {
   const categoryTotals: Record<string, { turns: number; costUSD: number; editTurns: number; oneShotTurns: number }> = {}
+  const skillTotals: Record<string, { turns: number; costUSD: number; editTurns: number; oneShotTurns: number }> = {}
   for (const project of projects) {
     for (const session of project.sessions) {
       for (const [cat, data] of Object.entries(session.categoryBreakdown)) {
@@ -364,24 +367,47 @@ function ActivityBreakdown({ projects, pw, bw }: { projects: ProjectSummary[]; p
         categoryTotals[cat].editTurns += data.editTurns
         categoryTotals[cat].oneShotTurns += data.oneShotTurns
       }
+      for (const [skill, data] of Object.entries(session.skillBreakdown ?? {})) {
+        if (!skillTotals[skill]) skillTotals[skill] = { turns: 0, costUSD: 0, editTurns: 0, oneShotTurns: 0 }
+        skillTotals[skill].turns += data.turns
+        skillTotals[skill].costUSD += data.costUSD
+        skillTotals[skill].editTurns += data.editTurns
+        skillTotals[skill].oneShotTurns += data.oneShotTurns
+      }
     }
   }
   const sorted = Object.entries(categoryTotals).sort(([, a], [, b]) => b.costUSD - a.costUSD)
+  const sortedSkills = Object.entries(skillTotals).sort(([, a], [, b]) => b.costUSD - a.costUSD).slice(0, SKILL_SUB_ROWS_LIMIT)
   const maxCost = sorted[0]?.[1]?.costUSD ?? 0
   return (
     <Panel title="By Activity" color={PANEL_COLORS.activity} width={pw}>
       <Text dimColor wrap="truncate-end">{''.padEnd(bw + 14)}{'cost'.padStart(8)}{'turns'.padStart(6)}{'1-shot'.padStart(7)}</Text>
-      {sorted.map(([cat, data]) => {
+      {sorted.flatMap(([cat, data]) => {
         const oneShotPct = data.editTurns > 0 ? Math.round((data.oneShotTurns / data.editTurns) * 100) + '%' : '-'
-        return (
+        const rows = [
           <Text key={cat} wrap="truncate-end">
             <HBar value={data.costUSD} max={maxCost} width={bw} />
             <Text color={CATEGORY_COLORS[cat as TaskCategory] ?? '#666666'}> {fit(CATEGORY_LABELS[cat as TaskCategory] ?? cat, 13)}</Text>
             <Text color={GOLD}>{formatCost(data.costUSD).padStart(8)}</Text>
             <Text>{String(data.turns).padStart(6)}</Text>
             <Text color={data.editTurns === 0 ? DIM : oneShotPct === '100%' ? '#5BF58C' : ORANGE}>{String(oneShotPct).padStart(7)}</Text>
-          </Text>
-        )
+          </Text>,
+        ]
+        if (cat === 'general' && sortedSkills.length > 0) {
+          for (const [skill, sd] of sortedSkills) {
+            const subPct = sd.editTurns > 0 ? Math.round((sd.oneShotTurns / sd.editTurns) * 100) + '%' : '-'
+            rows.push(
+              <Text key={`${cat}:${skill}`} wrap="truncate-end" dimColor>
+                <HBar value={sd.costUSD} max={maxCost} width={bw} />
+                <Text> {fit(`  /${skill}`, 13)}</Text>
+                <Text>{formatCost(sd.costUSD).padStart(8)}</Text>
+                <Text>{String(sd.turns).padStart(6)}</Text>
+                <Text>{String(subPct).padStart(7)}</Text>
+              </Text>,
+            )
+          }
+        }
+        return rows
       })}
     </Panel>
   )

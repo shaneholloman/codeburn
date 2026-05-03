@@ -29,6 +29,7 @@ function makeCall(timestamp: string, costUSD: number, model = 'Opus 4.7', provid
     costUSD,
     tools: [],
     mcpTools: [],
+    skills: [],
     hasAgentSpawn: false,
     hasPlanMode: false,
     speed: 'standard' as const,
@@ -72,6 +73,7 @@ describe('aggregateProjectsIntoDays', () => {
           mcpBreakdown: {},
           bashBreakdown: {},
           categoryBreakdown: {} as never,
+          skillBreakdown: {} as never,
         }],
       }),
     ]
@@ -114,6 +116,7 @@ describe('aggregateProjectsIntoDays', () => {
           mcpBreakdown: {},
           bashBreakdown: {},
           categoryBreakdown: {} as never,
+          skillBreakdown: {} as never,
         }],
       }),
     ]
@@ -143,6 +146,7 @@ describe('aggregateProjectsIntoDays', () => {
           turns: [],
           modelBreakdown: {}, toolBreakdown: {}, mcpBreakdown: {}, bashBreakdown: {},
           categoryBreakdown: {} as never,
+          skillBreakdown: {} as never,
         }],
       }),
     ]
@@ -175,6 +179,7 @@ describe('aggregateProjectsIntoDays', () => {
           ],
           modelBreakdown: {}, toolBreakdown: {}, mcpBreakdown: {}, bashBreakdown: {},
           categoryBreakdown: {} as never,
+          skillBreakdown: {} as never,
         }],
       }),
     ]
@@ -290,6 +295,7 @@ describe('buildPeriodDataFromDays', () => {
           }],
           modelBreakdown: {}, toolBreakdown: {}, mcpBreakdown: {}, bashBreakdown: {},
           categoryBreakdown: {} as never,
+          skillBreakdown: {} as never,
         }],
       }),
     ]
