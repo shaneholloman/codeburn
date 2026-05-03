@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.9.6 - 2026-05-03
+
+### Added (CLI)
+- **Goose provider.** New provider for Block's Goose AI coding assistant.
+- **Antigravity provider.** New provider for Windsurf/Antigravity IDE sessions.
+- **Antigravity model aliases.** gemini-3-pro, flash-image, flash-lite, and community-contributed Gemini model IDs.
+- **GPT-5.5 display name** for Codex.
+- **Deno support.** `deno dx` added as a run method.
+
+### Fixed (CLI)
+- **Streaming dedup.** Claude Code streams each `message.id` multiple times (start, intermediate, stop). The old keep-first strategy lost tool_use blocks and understated output tokens by ~6.3%. Now keeps last occurrence content with first occurrence timestamp for correct date bucketing.
+- **`$0.0000` display.** Near-zero costs showed four decimal places instead of `$0.00`. Fixes #205.
+- **ANSI escape stripping.** Shell commands containing ANSI color codes now cleaned across all providers.
+- **Antigravity dedup collision.** Fixed key collision in session dedup. Added Codex ChatGPT Plus token estimation.
+- **Codex large session validation.** Reads full first line for session meta validation; caps read size and handles torn writes.
+- **Codex fork dedup.** Deduplicates forked Codex sessions to avoid double-counting.
+- **Windows dashboard hang.** Fixed `ExperimentalWarning` and dashboard freeze on Windows.
+- **Hardcoded `$` in forecast.** Forecast comparison text now uses the configured currency symbol.
+
+### Fixed (macOS menubar)
+- **Provider tabs showing $0.00 after idle.** CLI timeout increased from 20s to 45s for cold file-cache latency. Loading overlay now appears when the all-provider payload confirms a provider has spend but its dedicated data hasn't loaded yet.
+- **Refresh button blocked by in-flight requests.** Manual refresh now bypasses the in-flight guard so users can always re-fetch.
+- **Tab strip vs hero cost mismatch.** Tab strip prefers the provider-specific payload cost when available, staying in sync with the hero section.
+- **Ghost status item on macOS Tahoe.**
+
 ## 0.9.5 - 2026-05-01
 
 ### Added (CLI)
